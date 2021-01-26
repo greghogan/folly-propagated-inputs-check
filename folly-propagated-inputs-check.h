@@ -11,6 +11,7 @@
 #include <folly/Chrono.h>
 #include <folly/chrono/Hardware.h>
 #include <folly/ClockGettimeWrappers.h>
+#include <folly/CompiledFormat.h>
 #include <folly/compression/CompressionContextPool.h>
 #include <folly/compression/CompressionContextPoolSingletons.h>
 #include <folly/compression/CompressionCoreLocalContextPool.h>
@@ -111,6 +112,7 @@
 #include <folly/executors/IOObjectCache.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/executors/ManualExecutor.h>
+#include <folly/executors/MeteredExecutor.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
 #include <folly/executors/ScheduledExecutor.h>
 #include <folly/executors/SequencedExecutor.h>
@@ -143,6 +145,7 @@
 #include <folly/experimental/coro/AsyncGenerator.h>
 #include <folly/experimental/coro/AsyncPipe.h>
 #include <folly/experimental/coro/AsyncScope.h>
+#include <folly/experimental/coro/AsyncStack.h>
 #include <folly/experimental/coro/Baton.h>
 #include <folly/experimental/coro/BlockingWait.h>
 #include <folly/experimental/coro/Collect.h>
@@ -152,12 +155,12 @@
 #include <folly/experimental/coro/DetachOnCancel.h>
 #include <folly/experimental/coro/detail/Barrier.h>
 #include <folly/experimental/coro/detail/BarrierTask.h>
+#include <folly/experimental/coro/detail/CurrentAsyncFrame.h>
 #include <folly/experimental/coro/detail/Helpers.h>
 #include <folly/experimental/coro/detail/InlineTask.h>
 #include <folly/experimental/coro/detail/Malloc.h>
 #include <folly/experimental/coro/detail/ManualLifetime.h>
 #include <folly/experimental/coro/detail/Traits.h>
-#include <folly/experimental/coro/Error.h>
 #include <folly/experimental/coro/Filter.h>
 #include <folly/experimental/coro/FutureUtil.h>
 #include <folly/experimental/coro/Generator.h>
@@ -167,6 +170,7 @@
 #include <folly/experimental/coro/Merge.h>
 #include <folly/experimental/coro/Multiplex.h>
 #include <folly/experimental/coro/Mutex.h>
+#include <folly/experimental/coro/Result.h>
 #include <folly/experimental/coro/Retry.h>
 #include <folly/experimental/coro/SharedLock.h>
 #include <folly/experimental/coro/SharedMutex.h>
@@ -180,6 +184,7 @@
 #include <folly/experimental/coro/Utils.h>
 #include <folly/experimental/coro/ViaIfAsync.h>
 #include <folly/experimental/coro/Wait.h>
+#include <folly/experimental/coro/WithAsyncStack.h>
 #include <folly/experimental/coro/WithCancellation.h>
 */
 #include <folly/experimental/crypto/Blake2xb.h>
@@ -189,6 +194,14 @@
 #include <folly/experimental/EliasFanoCoding.h>
 #include <folly/experimental/EnvUtil.h>
 #include <folly/experimental/EventCount.h>
+/*
+#include <folly/experimental/exception_tracer/ExceptionAbi.h>
+#include <folly/experimental/exception_tracer/ExceptionCounterLib.h>
+#include <folly/experimental/exception_tracer/ExceptionTracer.h>
+#include <folly/experimental/exception_tracer/ExceptionTracerLib.h>
+#include <folly/experimental/exception_tracer/SmartExceptionTracer.h>
+#include <folly/experimental/exception_tracer/StackTrace.h>
+*/
 #include <folly/experimental/ExecutionObserver.h>
 #include <folly/experimental/flat_combining/FlatCombining.h>
 #include <folly/experimental/FlatCombiningPriorityQueue.h>
@@ -201,7 +214,7 @@
 #include <folly/experimental/io/HugePages.h>
 #include <folly/experimental/io/IoUringBackend.h>
 #include <folly/experimental/io/IoUring.h>
-#include <folly/experimental/io/PollIoBackend.h>
+#include <folly/experimental/io/SimpleAsyncIO.h>
 #include <folly/experimental/JemallocHugePageAllocator.h>
 #include <folly/experimental/JemallocNodumpAllocator.h>
 #include <folly/experimental/JSONSchema.h>
@@ -214,6 +227,7 @@
 #include <folly/experimental/observer/Observer.h>
 #include <folly/experimental/observer/Observer-pre.h>
 #include <folly/experimental/observer/SimpleObservable.h>
+#include <folly/experimental/observer/WithJitter.h>
 #include <folly/experimental/PrimaryPtr.h>
 #include <folly/experimental/ProgramOptions.h>
 #include <folly/experimental/QuotientMultiSet.h>
@@ -232,6 +246,7 @@
 #include <folly/experimental/StringKeyedUnorderedMap.h>
 #include <folly/experimental/StringKeyedUnorderedSet.h>
 #include <folly/experimental/STTimerFDTimeoutManager.h>
+#include <folly/experimental/symbolizer/detail/Debug.h>
 #include <folly/experimental/symbolizer/Dwarf.h>
 #include <folly/experimental/symbolizer/ElfCache.h>
 #include <folly/experimental/symbolizer/Elf.h>
@@ -289,7 +304,6 @@
 #include <folly/FileUtil.h>
 #include <folly/Fingerprint.h>
 #include <folly/FixedString.h>
-#include <folly/folly-config.h>
 #include <folly/FormatArg.h>
 #include <folly/Format.h>
 #include <folly/FormatTraits.h>
@@ -344,11 +358,13 @@
 #include <folly/io/async/AsyncTransport.h>
 #include <folly/io/async/AsyncUDPServerSocket.h>
 #include <folly/io/async/AsyncUDPSocket.h>
+#include <folly/io/async/AtomicNotificationQueue.h>
 #include <folly/io/async/CertificateIdentityVerifier.h>
 #include <folly/io/async/DecoratedAsyncTransportWrapper.h>
 #include <folly/io/async/DelayedDestructionBase.h>
 #include <folly/io/async/DelayedDestruction.h>
 #include <folly/io/async/DestructorCheck.h>
+#include <folly/io/async/EventBaseAtomicNotificationQueue.h>
 #include <folly/io/async/EventBaseBackendBase.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/EventBaseLocal.h>
@@ -415,6 +431,7 @@
 #include <folly/logging/AsyncLogWriter.h>
 #include <folly/logging/BridgeFromGoogleLogging.h>
 #include <folly/logging/CustomLogFormatter.h>
+//#include <folly/logging/example/lib.h>
 #include <folly/logging/FileHandlerFactory.h>
 #include <folly/logging/FileWriterFactory.h>
 #include <folly/logging/GlogStyleFormatter.h>
@@ -452,7 +469,9 @@
 #include <folly/memory/MallctlHelper.h>
 #include <folly/memory/Malloc.h>
 #include <folly/memory/MemoryResource.h>
+#include <folly/memory/not_null.h>
 #include <folly/memory/ReentrantAllocator.h>
+#include <folly/memory/SanitizeAddress.h>
 #include <folly/memory/SanitizeLeak.h>
 #include <folly/memory/ThreadCachedArena.h>
 #include <folly/memory/UninitializedMemoryHacks.h>
@@ -512,11 +531,15 @@
 #include <folly/portability/Windows.h>
 #include <folly/Preprocessor.h>
 #include <folly/ProducerConsumerQueue.h>
-/*
 #include <folly/python/async_generator.h>
+/*
 #include <folly/python/AsyncioExecutor.h>
 #include <folly/python/coro.h>
+#include <folly/python/error.h>
+#include <folly/python/executor.h>
+#include <folly/python/fibers.h>
 #include <folly/python/futures.h>
+#include <folly/python/GILAwareManualExecutor.h>
 #include <folly/python/iobuf.h>
 */
 #include <folly/Random.h>
@@ -562,6 +585,7 @@
 #include <folly/synchronization/AtomicUtil.h>
 #include <folly/synchronization/Baton.h>
 #include <folly/synchronization/CallOnce.h>
+#include <folly/synchronization/DelayedInit.h>
 #include <folly/synchronization/detail/AtomicUtils.h>
 #include <folly/synchronization/detail/Hardware.h>
 #include <folly/synchronization/detail/HazptrUtils.h>
@@ -610,6 +634,7 @@
 #include <folly/ThreadLocal.h>
 #include <folly/TimeoutQueue.h>
 #include <folly/TokenBucket.h>
+#include <folly/tracing/AsyncStack.h>
 #include <folly/tracing/ScopedTraceSection.h>
 #include <folly/tracing/StaticTracepoint-ELFx86.h>
 #include <folly/tracing/StaticTracepoint.h>

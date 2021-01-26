@@ -19,7 +19,7 @@
 
 /*
  * Headers from Folly's installation "include" path:
- *   find folly -type f \( \! -path "*test*" \! -name "*-inl.h" \) -exec echo "#include <{}>" \; | sort > ~/folly-propagated-inputs-check/folly-propagated-inputs-check.h
+ *   find folly -type f \( \! -path "*docs*" \! -path "*test*" \! -name "*-inl.h" -name "*.h" \) -exec echo "#include <{}>" \; | sort > ~/folly-propagated-inputs-check/folly-propagated-inputs-check.h
  */
 
 #include "folly-propagated-inputs-check.h"
